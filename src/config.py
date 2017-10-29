@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim:fenc=utf-8
-# Last modified: 2017-10-30 00:09:06
+# Last modified: 2017-10-30 00:50:33
 
 import json
 import os
@@ -35,16 +35,16 @@ class HackMDConfig(object):
         '''make config file input'''
         click.echo("Input the hackmd notifier settings:")
         self.config["account"] = click.prompt(
-            "gmail account:").strip()
-        self.config["password"] = click.prompt("gmail password:", hide_input=True)
+            "gmail account").strip()
+        self.config["password"] = click.prompt("gmail password", hide_input=True)
         self.config["recipient"] = click.prompt(
-            "recipient gmail:").strip()
+            "recipient gmail").strip()
 
     def save_config(self):
         '''write config into file'''
         try:
             if(len(self.config) < 1):
-                self.config = self.config_input()
+                self.config_input()
             with open(self.config_file_path, 'w') as outfile:
                 json.dump(
                     self.config, fp=outfile, separators=(',', ':'), sort_keys=True,
@@ -63,7 +63,6 @@ class HackMDConfig(object):
                 self.config = dict((key, value) for key, value in config.items())
             return True
         except:
-            logging.debug(traceback.print_exc())
             return False
 
     @property
