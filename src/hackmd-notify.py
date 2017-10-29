@@ -1,7 +1,7 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
 # vim:fenc=utf-8
-# Last modified: 2017-10-30 00:20:09
+# Last modified: 2017-10-30 00:53:08
 
 import argparse
 import concurrent.futures
@@ -41,8 +41,8 @@ DATABASE_PATH = 'db.json'
 }
 """
 
-class MailServer(object):
 
+class MailServer(object):
     def __init__(self, smtp_server = '', port = 0):
 
         if smtp_server is '' and port is 0:
@@ -89,6 +89,11 @@ class HackMDNotify(HackMDConfig,MailServer):
         if not os.path.exists(self.path):
             self.init_db()
 
+        if not self.check_config():
+            self.config_input()
+            self.save_config()
+
+
         self.db = json.loads(open(self.path).read())
         self.load_config()
         return self.db
@@ -126,10 +131,11 @@ class HackMDNotify(HackMDConfig,MailServer):
     def check_user_works_update(self, user):
         works = self.db[user]['works']
         contents = []
+
         for wk in works:
             current = self.parse_work(works[wk]['hackmd'], user, wk)
             if (self.check_if_need_notify(works[wk], current)):
-                contents.append("Please check: %{} - %{}: %{} \n".format(user, wk, works[wk]['hackmd'])
+                contents.append("Please check: %{} - %{}: %{} \n".format(user, wk, works[wk]['hackmd']))
                 alog.critical('Bang, please check: %s - %s: %s' % (user, wk, works[wk]['hackmd']))
                 self.update_work(works[wk], current[0], current[1])
 
