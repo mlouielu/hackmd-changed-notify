@@ -130,13 +130,13 @@ class HackMDNotify(HackMDConfig,MailServer):
 
     def check_user_works_update(self, user):
         works = self.db[user]['works']
-        contents = []
+        contents = ""
 
         for wk in works:
             current = self.parse_work(works[wk]['hackmd'], user, wk)
             if (self.check_if_need_notify(works[wk], current)):
-                contents.append("Please check: %{} - %{}: %{} \n".format(user, wk, works[wk]['hackmd']))
-                alog.critical('Bang, please check: %s - %s: %s' % (user, wk, works[wk]['hackmd']))
+                contents += "Please check: %{} - %{}: %{} \n".format(
+                    user, wk, works[wk]['hackmd'])
                 self.update_work(works[wk], current[0], current[1])
 
         self.send_mail(contents,self.config["account"],self.config["recipient"],self.config["password"])
