@@ -139,14 +139,22 @@ class HackMDNotify(HackMDConfig,MailServer):
                     user, wk, works[wk]['hackmd'])
                 self.update_work(works[wk], current[0], current[1])
 
-        self.send_mail(contents,self.config["account"],self.config["recipient"],self.config["password"])
+        return contents
 
     def check_works_update(self):
         # This will check all user works in database
+
+        contents = ""
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-            jobs = [executor.submit(self.check_user_works_update, user) for user in self.db]
+            jobs = [
+                executor.submit(self.check_user_works_update, user) for user in self.db
+            ]
             for future in concurrent.futures.as_completed(jobs):
-                future.result()
+                contents += future.result()
+
+        if contents != "":
+            self.send_mail(contents, self.config["account"], self.config["recipient"],
+                           self.config["password"])
 
     def init_user_work(self, username, wk):
         url = self.db[username]['works'][wk]['hackmd']
