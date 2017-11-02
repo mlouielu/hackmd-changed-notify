@@ -1,5 +1,7 @@
-#!/usr/bin/python3
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
+# vim:fenc=utf-8
+# Last modified: 2017-10-30 00:53:08
 
 import argparse
 import concurrent.futures
@@ -7,11 +9,19 @@ import json
 import os
 import re
 import subprocess
+import smtplib
 from datetime import datetime
 
 import alog
 import requests
+import click
 from lxml import etree
+from email.mime.text import MIMEText
+from config import HackMDConfig
+
+
+# default smtp server
+# use gmail here
 
 # Default database
 DATABASE_PATH = 'db.json'
@@ -31,8 +41,38 @@ DATABASE_PATH = 'db.json'
 }
 """
 
-class HackMDNotify:
+
+class MailServer(object):
+    def __init__(self, smtp_server = '', port = 0):
+
+        if smtp_server is '' and port is 0:
+            self.smtp_server = 'smtp.gmail.com'
+            self.port = 587
+
+
+    def send_mail(self,content,send_from,send_to,password):
+        msg = MIMEText(content)
+        msg['Subject'] = "HackMD notify!"
+        msg['From'] = send_from
+        msg['To'] = send_to
+
+        try:
+            server = smtplib.SMTP(self.smtp_server, self.port)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(send_from,password)
+            server.sendmail(send_from,send_to,msg.as_string())
+            server.quit()
+        except:
+            alog.error("send mail failed")
+
+class HackMDNotify(HackMDConfig,MailServer):
+
     def __init__(self, db_path):
+        HackMDConfig.__init__(self)
+        MailServer.__init__(self)
+
         self.path = db_path
         self.db = {}
         self.threshold_minutes = 20
@@ -41,17 +81,27 @@ class HackMDNotify:
     def init_db(self):
         self.db = {}
         self.save_db()
+        if not self.check_config:
+            self.config_input()
+            self.save_config()
 
     def load_db(self):
         if not os.path.exists(self.path):
             self.init_db()
 
+        if not self.check_config():
+            self.config_input()
+            self.save_config()
+
+
         self.db = json.loads(open(self.path).read())
+        self.load_config()
         return self.db
 
     def save_db(self):
         with open(self.path, 'w') as f:
             f.write(json.dumps(self.db, ensure_ascii=False))
+        self.save_config()
 
     def check_if_need_notify(self, work, current):
         # Input
@@ -80,18 +130,31 @@ class HackMDNotify:
 
     def check_user_works_update(self, user):
         works = self.db[user]['works']
+        contents = ""
+
         for wk in works:
             current = self.parse_work(works[wk]['hackmd'], user, wk)
             if (self.check_if_need_notify(works[wk], current)):
-                alog.critical('Bang, please check: %s - %s: %s' % (user, wk, works[wk]['hackmd']))
+                contents += "Please check: %{} - %{}: %{} \n".format(
+                    user, wk, works[wk]['hackmd'])
                 self.update_work(works[wk], current[0], current[1])
+
+        return contents
 
     def check_works_update(self):
         # This will check all user works in database
+
+        contents = ""
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-            jobs = [executor.submit(self.check_user_works_update, user) for user in self.db]
+            jobs = [
+                executor.submit(self.check_user_works_update, user) for user in self.db
+            ]
             for future in concurrent.futures.as_completed(jobs):
-                future.result()
+                contents += future.result()
+
+        if contents != "":
+            self.send_mail(contents, self.config["account"], self.config["recipient"],
+                           self.config["password"])
 
     def init_user_work(self, username, wk):
         url = self.db[username]['works'][wk]['hackmd']
